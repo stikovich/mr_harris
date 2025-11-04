@@ -4,9 +4,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import time
 import asyncio
 from datetime import timedelta
-
-# Ваш токен бота
-TOKEN = '8006784472:AAFe_Tsp-Iu_G7Yj6lmJ9h1hXRJEBZrNy6g'
+import os
+TOKEN = os.getenv('TOKEN')
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,4 +40,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
