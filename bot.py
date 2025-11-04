@@ -1,23 +1,25 @@
+
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.error import RetryAfter
 import time
 import asyncio
 from datetime import timedelta
 import os
+
 TOKEN = os.getenv('TOKEN')
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Обработка команды /starttimer с указанием секунд
     try:
         seconds = int(context.args[0])
     except IndexError:
         await update.message.reply_text("Использование: /starttimer SECONDS")
         return
-    
+
     chat_id = update.effective_chat.id
     message = await update.message.reply_text(f'Таймер запущен на {seconds} секунд')
 
@@ -27,9 +29,36 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(1)
             seconds -= 1
             remaining_time = str(timedelta(seconds=seconds))
-            await context.bot.edit_message_text(chat_id=chat_id, message_id=message.message_id, text=f'Оставшееся время: {remaining_time}')
-        
-        await context.bot.edit_message_text(chat_id=chat_id, message_id=message.message_id, text="Время вышло!")
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message.message_id,
+                    text=f'Оставшееся время: {remaining_time}'
+                )
+            except RetryAfter as e:
+                logger.warning(f"Превышение лимита запросов. Ждем {e.retry_after} секунд.")
+                await asyncio.sleep(e.retry_after)
+                # после ожидания повторить попытку редактирования
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message.message_id,
+                    text=f'Оставшееся время: {remaining_time}'
+                )
+
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message.message_id,
+                text="Время вышло!"
+            )
+        except RetryAfter as e:
+            logger.warning(f"Превышение лимита запросов. Ждем {e.retry_after} секунд.")
+            await asyncio.sleep(e.retry_after)
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message.message_id,
+                text="Время вышло!"
+            )
 
     asyncio.create_task(edit_message())
 
@@ -40,5 +69,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-
