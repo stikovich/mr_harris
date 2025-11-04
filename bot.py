@@ -21,41 +21,33 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     message = await update.message.reply_text(f'Таймер запущен на {seconds} секунд')
 
-    async def edit_message():
-        nonlocal seconds
-        while seconds > 0:
-            try:
-                await asyncio.sleep(1)
-            except asyncio.CancelledError:
-                return
 
+async def edit_message():
+    nonlocal seconds
+    while seconds > 0:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message.message_id,
+                text=f'Оставшееся время: {str(timedelta(seconds=seconds))}'
+            )
+            await asyncio.sleep(1)
             seconds -= 1
-            remaining_time = str(timedelta(seconds=seconds))
+        except RetryAfter as e:
+            wait_time = int(e.retry_after)
+            logger.warning(f"Превышение лимита запросов. Ждем {wait_time} секунд.")
+            # Вычитаем всё время ожидания из таймера за один раз
+            seconds -= wait_time
+            if seconds < 0:
+                seconds = 0
+            await asyncio.sleep(wait_time)
 
-            while True:
-                try:
-                    await context.bot.edit_message_text(
-                        chat_id=chat_id,
-                        message_id=message.message_id,
-                        text=f'Оставшееся время: {remaining_time}'
-                    )
-                    break
-                except RetryAfter as e:
-                    wait_time = min(e.retry_after, 5)  # ограничиваем время ожидания максимум 5 сек
-                    logger.warning(f"Превышение лимита запросов. Ждем {wait_time} секунд.")
-                    # Вычитаем время ожидания из таймера
-                    seconds -= int(wait_time)
-                    if seconds < 0:
-                        seconds = 0
-                    await asyncio.sleep(wait_time)
-
-        while True:
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=message.message_id,
-                    text="Время вышло!"
-                )
+    # По окончании
+    await context.bot.edit_message_text(
+        chat_id=chat_id,
+        message_id=message.message_id,
+        text="Время вышло!"
+    )
                 break
             except RetryAfter as e:
                 wait_time = min(e.retry_after, 5)
@@ -71,5 +63,6 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
 
 
