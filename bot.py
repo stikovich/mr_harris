@@ -10,23 +10,26 @@ TOKEN = '8006784472:AAG_-QBmWNQRz46VQ21ydP1n7W1kxZZASU4'
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-active_tasks = {}  # Хранение текущих активированных таймеров
+active_tasks = {}
 
 async def stop_existing_timers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Остановка всех активных таймеров"""
     global active_tasks
     for task in list(active_tasks.values()):
         task.cancel()
+        try:
+            await task  # Поджидаем завершения каждой задачи
+        except asyncio.CancelledError:
+            pass
     active_tasks.clear()
-    await update.message.reply_text("Все существующие таймеры успешно остановлены.")
+    await update.message.reply_text('Все существующие таймеры успешно остановлены.')
 
 async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Обработка команды /starttimer с указанием даты
     try:
         date_str = context.args[0]
         target_date = datetime.strptime(date_str, '%d.%m.%Y')  # Парсим введённую дату
     except (IndexError, ValueError):
-        await update.message.reply_text('Использование: /starttimer DD-MM-YYYY')
+        await update.message.reply_text('Использование: /starttimer DD.MM.YYYY')
         return
     
     chat_id = update.effective_chat.id
@@ -39,15 +42,15 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         nonlocal total_seconds
         while total_seconds > 0:
             await asyncio.sleep(60)  # Ожидание одной минуты
-            total_seconds -= 60     # Уменьшение общего количества секунд на 60
-            days_left = total_seconds // (3600*24)               # Дни
-            hours_left = (total_seconds % (3600*24)) // 3600   # Остаточные часы
-            minutes_left = ((total_seconds % 3600) // 60)      # Минуты
+            total_seconds -= 60     # Уменьшаем общее количество секунд на 60
+            days_left = total_seconds // (3600 * 24)              # Дни
+            hours_left = (total_seconds % (3600 * 24)) // 3600   # Остаточные часы
+            minutes_left = ((total_seconds % 3600) // 60)       # Минуты
             
             await context.bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=initial_message.message_id,
-                text=f'Увидимся через {days_left:.0f} дн., {hours_left:.0f} ч., {minutes_left:.0f} мин.'
+                text=f'Увидимся через {days_left:.0f} дн. {hours_left:.0f} ч. {minutes_left:.0f} мин.'
             )
         
         await context.bot.edit_message_text(
@@ -57,12 +60,20 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     task = asyncio.create_task(edit_message())
-    active_tasks.update({chat_id: task})  # Сохраняем ссылку на активную задачу
+    active_tasks.update({chat_id: task})
+
+    # Добавляем финальную проверку, чтобы дождаться завершения задачи
+    try:
+        await task
+    except asyncio.CancelledError:
+        logger.info('Таймер отменён')
+    else:
+        logger.info('Таймер завершился нормально')
 
 def main() -> None:
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler('starttimer', start_timer))
-    application.add_handler(CommandHandler('stoptimers', stop_existing_timers))  # Новая команда остановки таймеров
+    application.add_handler(CommandHandler('stoptimers', stop_existing_timers))
     application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
