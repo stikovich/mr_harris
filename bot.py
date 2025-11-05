@@ -2,47 +2,48 @@ import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-# Ваш токен бота
-TOKEN = '8006784472:AAG_-QBmWNQRz46VQ21ydP1n7W1kxZZASU4'
+# Токен вашего бота
+TOKEN = 'YOUR_BOT_TOKEN'
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Обработка команды /starttimer с указанием минут
+    # Обработка команды /starttimer с указанием даты
     try:
-        minutes = int(context.args[0])  # Теперь передаем минуты
-    except IndexError:
-        await update.message.reply_text("Использование: /starttimer MINUTES")
+        date_str = context.args[0]
+        target_date = datetime.strptime(date_str, '%d-%m-%Y')  # Парсим введённую дату
+    except (IndexError, ValueError):
+        await update.message.reply_text('Использование: /starttimer DD-MM-YYYY')
         return
     
-    total_seconds = minutes * 60  # Переводим минуты в секунды
     chat_id = update.effective_chat.id
-    message = await update.message.reply_text(f'Таймер запущен на {minutes} минут')
+    current_time = datetime.now()
+    delta = target_date - current_time
+    total_seconds = max(delta.total_seconds(), 0)  # Проверяем, чтобы разница была положительной
+    initial_message = await update.message.reply_text(f'Таймер запущен до {target_date.strftime("%d.%m.%Y")}')
 
     async def edit_message():
         nonlocal total_seconds
         while total_seconds > 0:
-            await asyncio.sleep(60)  # Ждем ровно одну минуту
-            total_seconds -= 60      # Уменьшаем общее количество секунд на 60
-            remaining_minutes = total_seconds // 60   # Получаем оставшиеся минуты
-            remaining_time = f"{remaining_minutes} мин."
+            await asyncio.sleep(60)  # Ожидание одной минуты
+            total_seconds -= 60     # Уменьшение общего количества секунд на 60
+            days_left = total_seconds // (3600*24)              # Дни
+            hours_left = (total_seconds % (3600*24)) // 3600   # Остаточные часы
+            minutes_left = ((total_seconds % 3600) // 60)      # Минуты
             
-            if remaining_minutes <= 0:
-                break  # Завершаем цикл, если осталось меньше минуты
-                
             await context.bot.edit_message_text(
                 chat_id=chat_id,
-                message_id=message.message_id,
-                text=f'Оставшееся время: {remaining_time}'
+                message_id=initial_message.message_id,
+                text=f'До выбранной даты осталось: {days_left:.0f} дн., {hours_left:.0f} ч., {minutes_left:.0f} мин.'
             )
         
         await context.bot.edit_message_text(
             chat_id=chat_id,
-            message_id=message.message_id,
-            text="Время вышло!"
+            message_id=initial_message.message_id,
+            text='Цель достигнута! Время истекло.'
         )
 
     asyncio.create_task(edit_message())
@@ -54,10 +55,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-
