@@ -51,7 +51,8 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main() -> None:
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler('starttimer', start_timer))
-    application.run_polling()
+    application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
+
