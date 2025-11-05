@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 TOKEN = '8006784472:AAG_-QBmWNQRz46VQ21ydP1n7W1kxZZASU4'
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # Замечание: в оригинале неверно задано имя логгера
 
 active_tasks = {}
 
@@ -71,7 +71,12 @@ async def start_timer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info('Таймер завершился нормально')
 
 def main() -> None:
-    application = ApplicationBuilder().token(TOKEN).build()
+    application = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .connect_timeout(60)  # Добавлен увеличенный таймаут
+        .build()
+    )
     application.add_handler(CommandHandler('starttimer', start_timer))
     application.add_handler(CommandHandler('stoptimers', stop_existing_timers))
     application.run_polling(drop_pending_updates=True)
