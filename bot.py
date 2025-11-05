@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 # Токен вашего бота
-TOKEN = 'YOUR_BOT_TOKEN'
+TOKEN = '8006784472:AAG_-QBmWNQRz46VQ21ydP1n7W1kxZZASU4'
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,3 +55,4 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
